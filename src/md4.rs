@@ -1,6 +1,5 @@
 use digest::Digest;
 use cryptoutil::{write_u32_le, read_u32v_le, FixedBuffer, FixedBuffer64, StandardPadding};
-use step_by::RangeExt;
 
 // initial values for Md4State
 const I0: u32 = 0x67452301;
@@ -75,30 +74,28 @@ impl Md4State {
         read_u32v_le(&mut data, input);
 
         // round 1
-        // maybe disclose loop for performance ?
-        for i in (0..16).step_up(4) {
-            a = op1(a, b, c, d, data[i], 3);
-            d = op1(d, a, b, c, data[i + 1], 7);
-            c = op1(c, d, a, b, data[i + 2], 11);
-            b = op1(b, c, d, a, data[i + 3], 19);
-        }
-
+        const_loop!([0, 4, 8, 12], {
+            a = op1(a, b, c, d, data[I], 3);
+            d = op1(d, a, b, c, data[I + 1], 7);
+            c = op1(c, d, a, b, data[I + 2], 11);
+            b = op1(b, c, d, a, data[I + 3], 19);
+        });
 
         // round 2
-        for i in (0..4) {
-            a = op2(a, b, c, d, data[i], 3);
-            d = op2(d, a, b, c, data[i + 4], 5);
-            c = op2(c, d, a, b, data[i + 8], 9);
-            b = op2(b, c, d, a, data[i + 12], 13);
-        }
+        const_loop!([0, 1, 2, 3], {
+            a = op2(a, b, c, d, data[I], 3);
+            d = op2(d, a, b, c, data[I + 4], 5);
+            c = op2(c, d, a, b, data[I + 8], 9);
+            b = op2(b, c, d, a, data[I + 12], 13);
+        });
 
         // round 3
-        for &i in [0, 2, 1, 3].iter() {
-            a = op3(a, b, c, d, data[i], 3);
-            d = op3(d, a, b, c, data[i + 8], 9);
-            c = op3(c, d, a, b, data[i + 4], 11);
-            b = op3(b, c, d, a, data[i + 12], 15);
-        }
+        const_loop!([0, 2, 1, 3], {
+            a = op3(a, b, c, d, data[I], 3);
+            d = op3(d, a, b, c, data[I + 8], 9);
+            c = op3(c, d, a, b, data[I + 4], 11);
+            b = op3(b, c, d, a, data[I + 12], 15);
+        });
 
         self.s0 = self.s0.wrapping_add(a);
         self.s1 = self.s1.wrapping_add(b);
