@@ -14,6 +14,8 @@ extern crate libc;
 #[cfg(all(test, feature = "with-bench"))]
 extern crate test;
 
+#[macro_use]
+mod macros;
 pub mod aead;
 pub mod aes;
 pub mod aes_gcm;

@@ -10,7 +10,6 @@
 
 use cryptoutil::{write_u32_le, read_u32v_le, FixedBuffer, FixedBuffer64, StandardPadding};
 use digest::Digest;
-use step_by::RangeExt;
 
 
 // A structure that represents that state of a digest computation for the MD5 digest function
@@ -55,6 +54,7 @@ impl Md5State {
             v ^ (u | !w)
         }
 
+    
         fn op_f(w: u32, x: u32, y: u32, z: u32, m: u32, s: u32) -> u32 {
             w.wrapping_add(f(x, y, z)).wrapping_add(m).rotate_left(s).wrapping_add(x)
         }
@@ -81,42 +81,45 @@ impl Md5State {
         read_u32v_le(&mut data, input);
 
         // round 1
-        for i in (0..16).step_up(4) {
-            a = op_f(a, b, c, d, data[i].wrapping_add(C1[i]), 7);
-            d = op_f(d, a, b, c, data[i + 1].wrapping_add(C1[i + 1]), 12);
-            c = op_f(c, d, a, b, data[i + 2].wrapping_add(C1[i + 2]), 17);
-            b = op_f(b, c, d, a, data[i + 3].wrapping_add(C1[i + 3]), 22);
-        }
+        const_loop!([0, 4, 8, 12], {
+            a = op_f(a, b, c, d, data[I].wrapping_add(C1[I]), 7);
+            d = op_f(d, a, b, c, data[I + 1].wrapping_add(C1[I + 1]), 12);
+            c = op_f(c, d, a, b, data[I + 2].wrapping_add(C1[I + 2]), 17);
+            b = op_f(b, c, d, a, data[I + 3].wrapping_add(C1[I + 3]), 22);
+        });
 
         // round 2
-        let mut t = 1;
-        for i in (0..16).step_up(4) {
-            a = op_g(a, b, c, d, data[t & 0x0f].wrapping_add(C2[i]), 5);
-            d = op_g(d, a, b, c, data[(t + 5) & 0x0f].wrapping_add(C2[i + 1]), 9);
-            c = op_g(c, d, a, b, data[(t + 10) & 0x0f].wrapping_add(C2[i + 2]), 14);
-            b = op_g(b, c, d, a, data[(t + 15) & 0x0f].wrapping_add(C2[i + 3]), 20);
-            t += 20;
-        }
+        const_loop!([0, 1, 2, 3], {
+            const II: usize = I * 4;
+            const T: usize = I * 20 + 1;
+
+            a = op_g(a, b, c, d, data[T & 0x0f].wrapping_add(C2[II]), 5);
+            d = op_g(d, a, b, c, data[(T + 5) & 0x0f].wrapping_add(C2[II + 1]), 9);
+            c = op_g(c, d, a, b, data[(T + 10) & 0x0f].wrapping_add(C2[II + 2]), 14);
+            b = op_g(b, c, d, a, data[(T + 15) & 0x0f].wrapping_add(C2[II + 3]), 20);
+        });
 
         // round 3
-        t = 5;
-        for i in (0..16).step_up(4) {
-            a = op_h(a, b, c, d, data[t & 0x0f].wrapping_add(C3[i]), 4);
-            d = op_h(d, a, b, c, data[(t + 3) & 0x0f].wrapping_add(C3[i + 1]), 11);
-            c = op_h(c, d, a, b, data[(t + 6) & 0x0f].wrapping_add(C3[i + 2]), 16);
-            b = op_h(b, c, d, a, data[(t + 9) & 0x0f].wrapping_add(C3[i + 3]), 23);
-            t += 12;
-        }
+        const_loop!([0, 1, 2, 3], {
+            const II: usize = I * 4;
+            const T: usize = I * 12 + 5;
+
+            a = op_h(a, b, c, d, data[T & 0x0f].wrapping_add(C3[II]), 4);
+            d = op_h(d, a, b, c, data[(T + 3) & 0x0f].wrapping_add(C3[II + 1]), 11);
+            c = op_h(c, d, a, b, data[(T + 6) & 0x0f].wrapping_add(C3[II + 2]), 16);
+            b = op_h(b, c, d, a, data[(T + 9) & 0x0f].wrapping_add(C3[II + 3]), 23);
+        });
 
         // round 4
-        t = 0;
-        for i in (0..16).step_up(4) {
-            a = op_i(a, b, c, d, data[t & 0x0f].wrapping_add(C4[i]), 6);
-            d = op_i(d, a, b, c, data[(t + 7) & 0x0f].wrapping_add(C4[i + 1]), 10);
-            c = op_i(c, d, a, b, data[(t + 14) & 0x0f].wrapping_add(C4[i + 2]), 15);
-            b = op_i(b, c, d, a, data[(t + 21) & 0x0f].wrapping_add(C4[i + 3]), 21);
-            t += 28;
-        }
+        const_loop!([0, 1, 2, 3], {
+            const II: usize = I * 4;
+            const T: usize = I * 28;
+
+            a = op_i(a, b, c, d, data[T & 0x0f].wrapping_add(C4[II]), 6);
+            d = op_i(d, a, b, c, data[(T + 7) & 0x0f].wrapping_add(C4[II + 1]), 10);
+            c = op_i(c, d, a, b, data[(T + 14) & 0x0f].wrapping_add(C4[II + 2]), 15);
+            b = op_i(b, c, d, a, data[(T + 21) & 0x0f].wrapping_add(C4[II + 3]), 21);
+        });
 
         self.s0 = self.s0.wrapping_add(a);
         self.s1 = self.s1.wrapping_add(b);
